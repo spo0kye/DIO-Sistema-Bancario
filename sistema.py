@@ -106,7 +106,7 @@ def deposito() -> None:
 def extratoFun() -> None:
     global extrato
     for op in extrato:
-        print(f"{op["operacao"]}: R${op["valor"]}")
+        print(f"{op["operacao"]}: R${op["valor"]}") if not extrato else print("Nenhum registro encontrado")
     
     print("Pressione uma tecla para sair...")
     msvcrt.getch()
