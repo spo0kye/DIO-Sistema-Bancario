@@ -1,8 +1,8 @@
 import datetime
 import msvcrt
 import locale
-import math
 import sys
+import os
 
 
 LIMIT_PER_DAY = 10
@@ -22,9 +22,8 @@ def main() -> None:
         print("Erro, saldo inválido")
         return
     
-    global data
-    data = datetime.datetime.now()
     while True:
+        os.system("cls") if os.name == "nt" else os.system("clear")
         menu = f"""
     
         R${saldo:.2f}
@@ -63,7 +62,8 @@ def main() -> None:
             case 'd':
                 OpQuantidade.setdefault(str(datetime.datetime.now().date()), 0)
                 if OpQuantidade[str(datetime.datetime.now().date())] > LIMIT_PER_DAY:
-                    print("Limite de operações diárias atingido.")
+                    print("Limite de operações diárias atingido.\nPressione uma tecla para voltar ao menu")
+                    msvcrt.getch()
                     continue
                 deposito()
                 
@@ -89,7 +89,7 @@ def saque() -> None:
         if valor <= saldo:
                 saldo -= valor
                 saques -= 1
-                extrato.append({"operacao": "saque", "valor":f"{valor}", "data": f"{datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S")}"})
+                extrato.append({"operacao": "saque", "valor":f"{valor}", "data": f"{datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")}"})
                 OpQuantidade[str(datetime.datetime.now().date())] += 1
                 return
         
@@ -101,7 +101,6 @@ def saque() -> None:
 def deposito() -> None:
     global saldo
     global extrato
-    global data
     valor = 0    
     while valor == 0:
         enter = input("Digite o valor a ser depositado: ")
@@ -117,7 +116,7 @@ def deposito() -> None:
         
         OpQuantidade[str(datetime.datetime.now().date())] += 1
         saldo += valor
-        extrato.append({"operacao": "deposito", "valor":f"{valor}", "data": f"{datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S")}"})
+        extrato.append({"operacao": "deposito", "valor":f"{valor}", "data": f"{datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")}"})
     return
 
 
