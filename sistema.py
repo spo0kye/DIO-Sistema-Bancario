@@ -1,9 +1,12 @@
+import datetime
 import msvcrt
 import locale
 import math
 import sys
 
 
+LIMIT_PER_DAY = 10
+OpQuantidade = {}
 extrato = []
 saques = 3
 
@@ -19,6 +22,8 @@ def main() -> None:
         print("Erro, saldo inválido")
         return
     
+    global data
+    data = datetime.datetime.now()
     while True:
         menu = f"""
     
@@ -47,9 +52,19 @@ def main() -> None:
                     print("Limite de saques atingido.\nPressione uma tecla para voltar ao menu")
                     msvcrt.getch()
                     continue
+                
+                
+                OpQuantidade.setdefault(str(datetime.datetime.now().date()), 0)
+                if OpQuantidade[str(datetime.datetime.now().date())] > LIMIT_PER_DAY:
+                    print("Limite de operações diárias atingido.")
+                    continue
                 saque()
             
             case 'd':
+                OpQuantidade.setdefault(str(datetime.datetime.now().date()), 0)
+                if OpQuantidade[str(datetime.datetime.now().date())] > LIMIT_PER_DAY:
+                    print("Limite de operações diárias atingido.")
+                    continue
                 deposito()
                 
             case 'e':
@@ -72,10 +87,11 @@ def saque() -> None:
             continue
         
         if valor <= saldo:
-            saldo -= valor
-            saques -= 1
-            extrato.append({"operacao": "saque", "valor":f"{valor}"})
-            return
+                saldo -= valor
+                saques -= 1
+                extrato.append({"operacao": "saque", "valor":f"{valor}", "data": f"{datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S")}"})
+                OpQuantidade[str(datetime.datetime.now().date())] += 1
+                return
         
         elif valor >= saldo:
             print("Saldo indisponível")
@@ -85,6 +101,7 @@ def saque() -> None:
 def deposito() -> None:
     global saldo
     global extrato
+    global data
     valor = 0    
     while valor == 0:
         enter = input("Digite o valor a ser depositado: ")
@@ -97,16 +114,17 @@ def deposito() -> None:
         if valor <= 0:
             print("Valor inválido")
             continue
-            
+        
+        OpQuantidade[str(datetime.datetime.now().date())] += 1
         saldo += valor
-        extrato.append({"operacao": "deposito", "valor":f"{valor}"})
+        extrato.append({"operacao": "deposito", "valor":f"{valor}", "data": f"{datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S")}"})
     return
 
 
 def extratoFun() -> None:
     global extrato
     for op in extrato:
-        print(f"{op["operacao"]}: R${op["valor"]}") if not extrato else print("Nenhum registro encontrado")
+        print(f"{op["operacao"]}: R${op["valor"]}, {op["data"]}") if extrato else print("Nenhum registro encontrado")
     
     print("Pressione uma tecla para sair...")
     msvcrt.getch()
