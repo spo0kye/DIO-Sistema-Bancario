@@ -7,8 +7,8 @@ import os
 
 LIMIT_PER_DAY = 10
 OpQuantidade = {}
-extrato = []
 saques = 3
+usuarios = {}
 
 
 def main() -> None:
@@ -28,9 +28,13 @@ def main() -> None:
     
         R${saldo:.2f}
 
+        [U]: Criar usuário
+        [C]: Criar Conta
+        [L]: Fazer Login
         [S]: Saque ({saques} saques restantes)
         [D]: Depósito
         [E]: Extrato
+        [T]: Teste
 
         [esc]: Sair
         """
@@ -46,6 +50,31 @@ def main() -> None:
         char = bytes.decode(char, encoding, errors="ignore")
 
         match char:
+            case 'u':
+                cpf = input("Digite seu CPF")
+                nome = input("Seu nome")
+                senha = input("Sua senha")
+                criarUsuario(cpf, nome, senha)
+                continue
+            
+            case 'c':
+                cpf = input("Digite seu CPF")
+                senha = input("Digite sua senha")
+                criarConta(cpf, senha)
+                continue
+            
+            case 'l':
+                cpf = input("Digite o CPF de login: ")
+                senha = input("Digite a senha de login: ")
+                
+                # Walrus operator, atribui e retorna o valor ao mesmo tempo
+                if (logado := login(cpf, senha)):
+                    if len(logado["contas"]) > 0:
+                        print("Você tem as contas: ")
+                        for conta in logado["contas"]:
+                            print(f"{conta["id"] | conta["saldo"]}")
+                continue
+            
             case 's':
                 if not saques > 0:
                     print("Limite de saques atingido.\nPressione uma tecla para voltar ao menu")
@@ -58,6 +87,7 @@ def main() -> None:
                     print("Limite de operações diárias atingido.")
                     continue
                 saque()
+                continue
             
             case 'd':
                 OpQuantidade.setdefault(str(datetime.datetime.now().date()), 0)
@@ -65,15 +95,56 @@ def main() -> None:
                     print("Limite de operações diárias atingido.\nPressione uma tecla para voltar ao menu")
                     msvcrt.getch()
                     continue
-                deposito()
+                deposito()    
                 
+            case 't':
+                print(usuarios)
+                msvcrt.getch()
+                continue
+                
+            
+        
             case 'e':
                 extratoFun()
+                continue
 
-   
+
+def criarUsuario(cpf: str, nome: str, senha: str) -> None:
+    if usuarios.get(cpf):
+        print("Usuário já cadastrado. Pessione uma tecla para retornar")
+        msvcrt.getch()
+        return
+    
+    usuarios[cpf]= {"nome": nome, "senha": senha, "contas": []}
+    print("Usuário cadastrado com sucesso! Pessione uma tecla para retornar")
+    msvcrt.getch()
+    return
+
+
+def criarConta(cpf, senha) -> None:
+    if not usuarios.get(cpf):
+        print("Usuário não encontrado. Pessione uma tecla para retornar")
+        msvcrt.getch()
+        return
+
+    if senha != usuarios[senha]:
+        print("Senha incorreta. Pessione uma tecla para retornar")
+        msvcrt.getch()
+        return
+    
+    usuarios[cpf]["contas"].append({"id": len(usuarios[cpf]["contas"]), "saldo": saldo})
+    print("Conta criada com sucesso!")
+    msvcrt.getch()
+    return
+    
+
+def login():
+    msvcrt.getch()
+    return
+
 def saque() -> None:
     valor = 0
-    print("Digite sair para cancelar a operação e voltar ao menu")
+    print('Digite "sair" para cancelar a operação e voltar ao menu')
     while valor <= 0:
         global saldo
         global saques
@@ -94,8 +165,9 @@ def saque() -> None:
                 return
         
         elif valor >= saldo:
-            print("Saldo indisponível")
+            print("Saldo indisponível. Pressione uma tecla para retornar")
             valor = 0
+            msvcrt.getch()
     
 
 def deposito() -> None:
