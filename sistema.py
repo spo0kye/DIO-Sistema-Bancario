@@ -1,14 +1,15 @@
 import datetime
 import msvcrt
 import locale
+import time
 import sys
 import os
 
 
-LIMIT_PER_DAY = 10
-OpQuantidade = {}
-saques = 3
+OP_PER_DAY = 10
+SAQUES = 3
 usuarios = {}
+logado = {}
 
 
 def main() -> None:
@@ -25,13 +26,12 @@ def main() -> None:
     while True:
         os.system("cls") if os.name == "nt" else os.system("clear")
         menu = f"""
-    
-        R${saldo:.2f}
+        {f"R${logado.get("saldo")}\n        Operações diárias restantes: {OP_PER_DAY - logado.get(str(datetime.datetime.now().date()))}" if "logado" in locals() else ''}
 
         [U]: Criar usuário
         [C]: Criar Conta
         [L]: Fazer Login
-        [S]: Saque ({saques} saques restantes)
+        [S]: Saque
         [D]: Depósito
         [E]: Extrato
         [T]: Teste
@@ -51,15 +51,15 @@ def main() -> None:
 
         match char:
             case 'u':
-                cpf = input("Digite seu CPF")
-                nome = input("Seu nome")
-                senha = input("Sua senha")
+                cpf = input("Digite seu CPF: ")
+                nome = input("Seu nome: ")
+                senha = input("Sua senha: ")
                 criarUsuario(cpf, nome, senha)
                 continue
             
             case 'c':
-                cpf = input("Digite seu CPF")
-                senha = input("Digite sua senha")
+                cpf = input("Digite seu CPF: ")
+                senha = input("Digite sua senha: ")
                 criarConta(cpf, senha)
                 continue
             
@@ -67,87 +67,120 @@ def main() -> None:
                 cpf = input("Digite o CPF de login: ")
                 senha = input("Digite a senha de login: ")
                 
-                # Walrus operator, atribui e retorna o valor ao mesmo tempo
-                if (logado := login(cpf, senha)):
-                    if len(logado["contas"]) > 0:
-                        print("Você tem as contas: ")
-                        for conta in logado["contas"]:
-                            print(f"{conta["id"] | conta["saldo"]}")
+                logado = login(cpf, senha)
+                logado.setdefault(str(datetime.datetime.now().date()), 0)
                 continue
             
             case 's':
-                if not saques > 0:
-                    print("Limite de saques atingido.\nPressione uma tecla para voltar ao menu")
+                if not logado:
+                    print("Você não fez login com uma conta.\nPressione uma tecla para voltar ao menu")
                     msvcrt.getch()
                     continue
                 
                 
-                OpQuantidade.setdefault(str(datetime.datetime.now().date()), 0)
-                if OpQuantidade[str(datetime.datetime.now().date())] > LIMIT_PER_DAY:
-                    print("Limite de operações diárias atingido.")
+                logado.setdefault(str(datetime.datetime.now().date()), 0)
+                if logado[str(datetime.datetime.now().date())] > OP_PER_DAY:
+                    print("Limite de operações diárias atingido. Retornando")
+                    time.sleep(2)
                     continue
-                saque()
+                
+                elif logado["saques"] == 0:
+                    print("Limite de saques atingido. Retornando...")
+                    time.sleep(2)
+                    continue
+                
+                saque(logado)
                 continue
             
             case 'd':
-                OpQuantidade.setdefault(str(datetime.datetime.now().date()), 0)
-                if OpQuantidade[str(datetime.datetime.now().date())] > LIMIT_PER_DAY:
+                if not logado:
+                    print("Você não fez login com uma conta.\nPressione uma tecla para voltar ao menu")
+                    msvcrt.getch()
+                    continue
+                
+                logado.setdefault(str(datetime.datetime.now().date()), 0)
+                if logado[str(datetime.datetime.now().date())] >= OP_PER_DAY:
                     print("Limite de operações diárias atingido.\nPressione uma tecla para voltar ao menu")
                     msvcrt.getch()
                     continue
-                deposito()    
-                
+                deposito(logado)
+
             case 't':
                 print(usuarios)
                 msvcrt.getch()
                 continue
-                
             
-        
             case 'e':
-                extratoFun()
+                if not logado:
+                    print("Você não fez o login ainda. Pressione uma tecla para retornar")
+                    msvcrt.getch()
+                    continue
+                
+                extratoFun(logado)
                 continue
 
 
 def criarUsuario(cpf: str, nome: str, senha: str) -> None:
     if usuarios.get(cpf):
-        print("Usuário já cadastrado. Pessione uma tecla para retornar")
+        print("Usuário já cadastrado \nPessione uma tecla para retornar")
         msvcrt.getch()
         return
     
     usuarios[cpf]= {"nome": nome, "senha": senha, "contas": []}
-    print("Usuário cadastrado com sucesso! Pessione uma tecla para retornar")
+    print("Usuário cadastrado com sucesso \nPessione uma tecla para retornar")
     msvcrt.getch()
     return
 
 
 def criarConta(cpf, senha) -> None:
     if not usuarios.get(cpf):
-        print("Usuário não encontrado. Pessione uma tecla para retornar")
+        print("Usuário não encontrado \nPessione uma tecla para retornar")
         msvcrt.getch()
         return
 
-    if senha != usuarios[senha]:
-        print("Senha incorreta. Pessione uma tecla para retornar")
+    if senha != usuarios[cpf]["senha"]:
+        print("Senha incorreta \nPessione uma tecla para retornar")
         msvcrt.getch()
         return
     
-    usuarios[cpf]["contas"].append({"id": len(usuarios[cpf]["contas"]), "saldo": saldo})
-    print("Conta criada com sucesso!")
+    usuarios[cpf]["contas"].append({"id": len(usuarios[cpf]["contas"]), "saldo": saldo, "saques": SAQUES, "extrato": []})
+    print("Conta criada com sucesso! Pressione uma tecla para retornar")
     msvcrt.getch()
     return
     
 
-def login():
-    msvcrt.getch()
-    return
+def login(cpf, senha):
+    if not usuarios.get(cpf):
+        print("Erro, Usuário não cadastrado \nPressione uma tecla para retornar")
+        msvcrt.getch()
+        return
 
-def saque() -> None:
+    if senha != usuarios[cpf]["senha"]:
+        print("Erro, Senha incorreta \nPressione uma tecla para retornar")
+        msvcrt.getch()
+        return
+
+
+    if len(usuarios[cpf]["contas"]) > 0:
+        print("Você tem as contas: ")
+        for conta in usuarios[cpf]["contas"]:
+            print(f"{conta["id"]} | {conta["saldo"]}")
+            
+        while not (logado := next((u for u in usuarios[cpf]["contas"] if u["id"] == conta), None)):
+            conta = int(input("Selecione o número da conta desejada: "))
+            
+        return logado
+    else:
+        print("Você não tem nenhuma conta para utilização \nPressione uma tecla para retornar")
+        msvcrt.getch()
+        return
+    
+
+def saque(logado) -> None:
     valor = 0
-    print('Digite "sair" para cancelar a operação e voltar ao menu')
+    print(f'Saques restantes: {logado.get("saques")} \nSaldo restante: {logado.get("saldo")}\
+        \nDigite "sair" para cancelar a operação e voltar ao menu')
     while valor <= 0:
-        global saldo
-        global saques
         enter = input("Digite o valor desejado para saque: ")
         if enter == "sair":
             return
@@ -157,11 +190,11 @@ def saque() -> None:
         except:
             continue
         
-        if valor <= saldo:
-                saldo -= valor
-                saques -= 1
-                extrato.append({"operacao": "saque", "valor":f"{valor}", "data": f"{datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")}"})
-                OpQuantidade[str(datetime.datetime.now().date())] += 1
+        if valor <= logado.get("saldo"):
+                logado["saldo"] -= valor
+                logado["saques"] -= 1
+                logado["extrato"].append({"operacao": "saque", "valor":f"{valor}", "data": f"{datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")}"})
+                logado[str(datetime.datetime.now().date())] += 1
                 return
         
         elif valor >= saldo:
@@ -170,10 +203,8 @@ def saque() -> None:
             msvcrt.getch()
     
 
-def deposito() -> None:
-    global saldo
-    global extrato
-    valor = 0    
+def deposito(logado) -> None:
+    valor = 0 
     while valor == 0:
         enter = input("Digite o valor a ser depositado: ")
         
@@ -186,16 +217,15 @@ def deposito() -> None:
             print("Valor inválido")
             continue
         
-        OpQuantidade[str(datetime.datetime.now().date())] += 1
-        saldo += valor
-        extrato.append({"operacao": "deposito", "valor":f"{valor}", "data": f"{datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")}"})
+        logado[str(datetime.datetime.now().date())] += 1
+        logado["saldo"] += valor
+        logado["extrato"].append({"operacao": "deposito", "valor":f"{valor}", "data": f"{datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")}"})
     return
 
 
-def extratoFun() -> None:
-    global extrato
-    for op in extrato:
-        print(f"{op["operacao"]}: R${op["valor"]}, {op["data"]}") if extrato else print("Nenhum registro encontrado")
+def extratoFun(logado) -> None:
+    for op in logado["extrato"]:
+        print(f"{op["operacao"]}: R${op["valor"]}, {op["data"]}") if logado["extrato"] else print("Nenhum registro encontrado")
     
     print("Pressione uma tecla para sair...")
     msvcrt.getch()
