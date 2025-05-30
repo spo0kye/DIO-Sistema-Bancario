@@ -5,232 +5,231 @@ import time
 import sys
 import os
 
+OP_POR_DIA = 10
+encoding = locale.getpreferredencoding()
 
-OP_PER_DAY = 10
-SAQUES = 3
-usuarios = {}
-logado = {}
+def criarUsuário() -> dict:
+    nome = input("Digite seu nome: ")
+    nascimento = datetime.datetime.strptime(input("Digite sua data de nascimento(dd/mm/AAAA)\n"), "%d/%m/%Y")
+    cpf = input("Digite seu CPF apenas com números\n")
+    endereço = input("Digite seu endereço da seguinte forma: logradouro, n° - bairro - cidade/sigla estado\n")
+    senha = input("Digite sua senha\n")
+    return {"nome": nome, "nascimento": nascimento, "cpf": cpf, "endereço": endereço, "senha": senha, "extrato": []}
+
+
+def criarConta(tamanho, usuário) -> dict:
+    if not usuário:
+        print("Faça login ou crie um novo usuário para criar uma conta.\n")
+        time.sleep(2)
+        return
+    
+    print(f"Criando conta, Agência n° 0001, número {tamanho + 1}, usuário: {usuário["nome"]}")
+    print("Conta criada com sucesso, faça login para usar. \nSaindo...")
+    time.sleep(2)
+    return {"agência": "0001", "número": tamanho + 1, "usuário": usuário, "saldo": 0, "dia": datetime.datetime.now().day, "limite": OP_POR_DIA}
+
+
+def login(usuário, contas = None, opt = None) -> dict:
+    print("O(a) Senhor(a) possui as seguintes contas disponíveis:")
+    contasUsuário = [conta for conta in contas if conta["usuário"]["cpf"] == usuário["cpf"]]
+    if not contasUsuário:
+        print("Você não tem contas disponíveis. Crie uma primeiro.")
+        print("Aperte uma tecla para retornar.")
+        msvcrt.getch()
+        return
+    
+    for conta in contasUsuário:
+        print(f"agência: {conta["agência"]} | número {conta["número"]}")
+        
+    select = int(input("\nDigite o número da conta desejada: "))
+    while not (conta := next((conta for conta in contasUsuário if conta["número"] == select), None)):
+        select = input("Digite o número da conta desejada: ")
+        if select.isdigit():
+            select = int(select)
+            
+    return conta
+
+
+def saque(*, valor, conta):
+    if conta["saldo"] < valor:
+        print("Saldo indisponível...")
+        print("Pressione uma tecla para retornar")
+        msvcrt.getch()
+        return
+    
+    if conta["limite"] <= 0:
+        print("Limite de operações diárias dessa conta atingido.")
+        print("Pressione uma tecla para retornar")
+        msvcrt.getch()
+        return
+    
+    conta["saldo"] -= valor
+    conta["usuário"]["extrato"].append(f"Conta: {conta["número"]} \t Saque: \t\t{valor}")
+    print("Saque efetuado com sucesso")
+    print("Pressione uma tecla para retornar")
+    msvcrt.getch()
+    return
+
+
+def depósito(valor, conta, /):
+    if conta["limite"] <= 0:
+        print("Limite de operações diárias dessa conta atingido")
+        return
+    
+    conta["saldo"] += valor
+    conta["usuário"]["extrato"].append(f"Conta: {conta["número"]} \t Depósito: \t\t{valor}")
+    return
+
+
+def extrato(saldo, /, *, extrato):
+    for movimento in extrato:
+        print(movimento)
+        
+    print(f"Saldo: R${saldo}")
+    print("Aperte uma tecla para retornar.")
+    msvcrt.getch()
+    return
+
+
+def list_all(usuários) -> None:
+    for user in usuários:
+        for key in list(user):
+            print(f"{key} ")
+    print("Aperte uma tecla para retornar.")
+    msvcrt.getch()
+    return
+
+def menu():
+    os.system("cls")
+    print("""
+  
+    [U] Novo usuário
+    [C] Nova conta
+    [L] Fazer Login
+    [S] Saque
+    [D] Depósito
+    [E] Extrato
+    [T] Lista usuários
+          
+    Aperte a tecla da opção desejada ou 'Esc' para sair.
+          """)
+    char = msvcrt.getch()
+    if char == b'\x1b':
+        print("Saindo...")
+        sys.exit()
+    
+    char = bytes.decode(char, encoding, errors="ignore")
+    return char
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
-        print("Modo de uso: python {app} {saldo}")
-        return
-    
-    global saldo
-    saldo = float(sys.argv[1])
-    if saldo <= 0:
-        print("Erro, saldo inválido")
-        return
-    
+    usuários = []
+    usuárioLogado = {}
+    contas = []
+    logged = {}
     while True:
-        os.system("cls") if os.name == "nt" else os.system("clear")
-        menu = f"""
-        {f"R${logado.get("saldo")}\n        Operações diárias restantes: {OP_PER_DAY - logado.get(str(datetime.datetime.now().date()))}" if "logado" in locals() else ''}
-
-        [U]: Criar usuário
-        [C]: Criar Conta
-        [L]: Fazer Login
-        [S]: Saque
-        [D]: Depósito
-        [E]: Extrato
-        [T]: Teste
-
-        [esc]: Sair
-        """
-        print(menu)
-        
-        # Pega a letra digitada pelo usuário sem a necessidade de apertar ENTER e decodifica-a
-        char = msvcrt.getch()
-        if char == b'\x1b':
-            print("saindo...")
-            return
-        
-        encoding = locale.getpreferredencoding()
-        char = bytes.decode(char, encoding, errors="ignore")
-
-        match char:
+        match menu():
             case 'u':
-                cpf = input("Digite seu CPF: ")
-                nome = input("Seu nome: ")
-                senha = input("Sua senha: ")
-                criarUsuario(cpf, nome, senha)
+                usuárioLogado = criarUsuário()
+                if any(u["cpf"] == usuárioLogado["cpf"] for u in usuários):
+                    print("Usuário já existe. Falha na criação\n")
+                    time.sleep(2)
+                    continue
+                usuários.append(usuárioLogado)
                 continue
             
             case 'c':
-                cpf = input("Digite seu CPF: ")
-                senha = input("Digite sua senha: ")
-                criarConta(cpf, senha)
-                continue
+                contas.append(criarConta(len(contas), usuárioLogado))
+                continue    
             
             case 'l':
-                cpf = input("Digite o CPF de login: ")
-                senha = input("Digite a senha de login: ")
+                print("Aperte 1 para login de usuário e 2 para login de conta.")
+                opt = msvcrt.getch()
+                opt = bytes.decode(opt, encoding, errors="ignore")
+                while (opt != '1') and (opt != '2'):
+                    print("Aperte 1 para login de usuário ou 2 para login de conta.")
+                    opt = msvcrt.getch()
+                    opt = bytes.decode(opt, errors="ignore")
+                    print(opt)
+                    
+                if opt == '2':
+                    cpf = input("Digite seu CPF: ")
+                    senha = input("Digite sua senha: ")
+                    if usuário := next((u for u in usuários if u["cpf"] == cpf), None):
+                        if senha == usuário["senha"]:
+                            logged = login(usuário, contas, "conta")
+                            continue
+                        print("Senha incorreta.")
+                        print("Aperte uma tecla para continuar.")
+                        continue
+                    
+                    else:
+                        print("Usuário não encontrado.")
+                        print("Aperte uma tecla para continuar.")
+                        msvcrt.getch()
+                        continue
+                    
+                if opt == '1':
+                    cpf = input("Digite seu CPF: ")
+                    senha = input("Digite sua senha: ")
+                    if usuário := next((u for u in usuários if u["cpf"] == cpf), None):
+                        if senha == usuário["senha"]:                        
+                            usuárioLogado = usuário
+                            print("Usuário logado com sucesso.")
+                            print("Pressione uma tecla para retornar.")
+                            msvcrt.getch()
+                        else:
+                            print("Senha incorreta.")
+                            print("Aperte uma tecla para continuar.")
+                            msvcrt.getch()
+                    else:
+                        print("Usuário não encontrado.")
+                        print("Aperte uma tecla para continuar.")
+                        msvcrt.getch()
+                    continue
                 
-                logado = login(cpf, senha)
-                logado.setdefault(str(datetime.datetime.now().date()), 0)
-                continue
-            
             case 's':
-                if not logado:
-                    print("Você não fez login com uma conta.\nPressione uma tecla para voltar ao menu")
-                    msvcrt.getch()
-                    continue
-                
-                
-                logado.setdefault(str(datetime.datetime.now().date()), 0)
-                if logado[str(datetime.datetime.now().date())] > OP_PER_DAY:
-                    print("Limite de operações diárias atingido. Retornando")
+                if not logged:
+                    print("Você ainda não fez login com a conta.")
                     time.sleep(2)
                     continue
                 
-                elif logado["saques"] == 0:
-                    print("Limite de saques atingido. Retornando...")
-                    time.sleep(2)
-                    continue
-                
-                saque(logado)
+                valor = input("Digite o valor desejado: ")
+                while not valor.isdecimal():
+                    valor = input("Digite o valor desejado: ")                  
+                valor = float(valor)
+                saque(valor=valor, conta=logged)
                 continue
             
             case 'd':
-                if not logado:
-                    print("Você não fez login com uma conta.\nPressione uma tecla para voltar ao menu")
-                    msvcrt.getch()
+                if not logged:
+                    print("Você ainda não fez login com a conta.")
+                    time.sleep(2)
                     continue
                 
-                logado.setdefault(str(datetime.datetime.now().date()), 0)
-                if logado[str(datetime.datetime.now().date())] >= OP_PER_DAY:
-                    print("Limite de operações diárias atingido.\nPressione uma tecla para voltar ao menu")
-                    msvcrt.getch()
-                    continue
-                deposito(logado)
+                valor = input("Digite o valor desejado: ")
+                while not valor.isdigit():
+                    valor = input("Digite o valor desejado: ")                  
 
-            case 't':
-                print(usuarios)
-                msvcrt.getch()
+                valor = float(valor)
+                depósito(valor, logged)
                 continue
-            
+        
             case 'e':
-                if not logado:
-                    print("Você não fez o login ainda. Pressione uma tecla para retornar")
-                    msvcrt.getch()
+                if not logged:
+                    print("Você ainda não fez login com a conta.")
+                    time.sleep(2)
                     continue
                 
-                extratoFun(logado)
+                extrato(logged["saldo"], extrato=usuárioLogado["extrato"])
                 continue
-
-
-def criarUsuario(cpf: str, nome: str, senha: str) -> None:
-    if usuarios.get(cpf):
-        print("Usuário já cadastrado \nPessione uma tecla para retornar")
-        msvcrt.getch()
-        return
-    
-    usuarios[cpf]= {"nome": nome, "senha": senha, "contas": []}
-    print("Usuário cadastrado com sucesso \nPessione uma tecla para retornar")
-    msvcrt.getch()
-    return
-
-
-def criarConta(cpf, senha) -> None:
-    if not usuarios.get(cpf):
-        print("Usuário não encontrado \nPessione uma tecla para retornar")
-        msvcrt.getch()
-        return
-
-    if senha != usuarios[cpf]["senha"]:
-        print("Senha incorreta \nPessione uma tecla para retornar")
-        msvcrt.getch()
-        return
-    
-    usuarios[cpf]["contas"].append({"id": len(usuarios[cpf]["contas"]), "saldo": saldo, "saques": SAQUES, "extrato": []})
-    print("Conta criada com sucesso! Pressione uma tecla para retornar")
-    msvcrt.getch()
-    return
-    
-
-def login(cpf, senha):
-    if not usuarios.get(cpf):
-        print("Erro, Usuário não cadastrado \nPressione uma tecla para retornar")
-        msvcrt.getch()
-        return
-
-    if senha != usuarios[cpf]["senha"]:
-        print("Erro, Senha incorreta \nPressione uma tecla para retornar")
-        msvcrt.getch()
-        return
-
-
-    if len(usuarios[cpf]["contas"]) > 0:
-        print("Você tem as contas: ")
-        for conta in usuarios[cpf]["contas"]:
-            print(f"{conta["id"]} | {conta["saldo"]}")
-            
-        while not (logado := next((u for u in usuarios[cpf]["contas"] if u["id"] == conta), None)):
-            conta = int(input("Selecione o número da conta desejada: "))
-            
-        return logado
-    else:
-        print("Você não tem nenhuma conta para utilização \nPressione uma tecla para retornar")
-        msvcrt.getch()
-        return
-    
-
-def saque(logado) -> None:
-    valor = 0
-    print(f'Saques restantes: {logado.get("saques")} \nSaldo restante: {logado.get("saldo")}\
-        \nDigite "sair" para cancelar a operação e voltar ao menu')
-    while valor <= 0:
-        enter = input("Digite o valor desejado para saque: ")
-        if enter == "sair":
-            return
-
-        try:
-            valor = float(enter.format(".2f"))
-        except:
-            continue
         
-        if valor <= logado.get("saldo"):
-                logado["saldo"] -= valor
-                logado["saques"] -= 1
-                logado["extrato"].append({"operacao": "saque", "valor":f"{valor}", "data": f"{datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")}"})
-                logado[str(datetime.datetime.now().date())] += 1
-                return
+            case 't':
+                list_all(usuários)
+                continue
         
-        elif valor >= saldo:
-            print("Saldo indisponível. Pressione uma tecla para retornar")
-            valor = 0
-            msvcrt.getch()
-    
+    return 0
 
-def deposito(logado) -> None:
-    valor = 0 
-    while valor == 0:
-        enter = input("Digite o valor a ser depositado: ")
-        
-        try:
-            valor = float(enter.format(".2f"))
-        except:
-            continue
-        
-        if valor <= 0:
-            print("Valor inválido")
-            continue
-        
-        logado[str(datetime.datetime.now().date())] += 1
-        logado["saldo"] += valor
-        logado["extrato"].append({"operacao": "deposito", "valor":f"{valor}", "data": f"{datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")}"})
-    return
-
-
-def extratoFun(logado) -> None:
-    for op in logado["extrato"]:
-        print(f"{op["operacao"]}: R${op["valor"]}, {op["data"]}") if logado["extrato"] else print("Nenhum registro encontrado")
-    
-    print("Pressione uma tecla para sair...")
-    msvcrt.getch()
-    return
-    
 
 if __name__ == "__main__":
     main()
