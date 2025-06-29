@@ -7,9 +7,10 @@ Funcionalidade:
 saldo  
 Saque
 Depósito
-Extrato
+Mostrar extrato
 Criar conta
 Criar usuário
+Login
 ```
 
 uso:
