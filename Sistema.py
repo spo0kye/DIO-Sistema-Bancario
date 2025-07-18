@@ -34,8 +34,12 @@ class ContasIterador():
 
 def log(f):
     def wrapper(*args, **kwargs):
-        print(f"Data: {datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S")}\nTipo: {f.__name__}")
-        f(*args, **kwargs)
+        with open(f"log.txt", "a") as file:
+            file.write(f"Data: {datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S")}\t\t\
+                Tipo: {f.__name__} \t\t\
+                Args: {args}, {kwargs}\t\t\
+                Retorno: {f(*args, **kwargs)}\n\
+            ")
     return wrapper
 
 
@@ -56,7 +60,14 @@ def filtro(conta:Conta, filtro:str = None):
 def criarUsuário():
     global usuários
     nome = input("Digite seu nome: ")
-    nascimento = datetime.datetime.strptime(input("Digite sua data de nascimento(dd/mm/AAAA)\n"), "%d/%m/%Y")
+    while True:
+        try:
+            nascimento = datetime.datetime.strptime(input("Digite sua data de nascimento(dd/mm/AAAA)\n"), "%d/%m/%Y")
+            break
+        except:
+            print("\nEntrada inválida. Tente novamente")
+            continue
+    
     cpf = input("Digite seu CPF\n")
     if any(u.cpf == cpf for u in usuários):
         print("Já existe um usuário cadastrado com esse CPF.\nAperte um botão para continuar")
@@ -108,26 +119,26 @@ def saque(*, valor, conta):
         print("Saldo indisponível...")
         print("Pressione uma tecla para retornar")
         msvcrt.getch()
-        return
+        return 1
     
     if conta.limite <= 0:
         print("Limite de operações diárias dessa conta atingido.")
         print("Pressione uma tecla para retornar")
         msvcrt.getch()
-        return
+        return 2
     
     Saque(valor).registrar(conta)
     print("Pressione uma tecla para retornar")
     msvcrt.getch()
-    return
+    return 0
 
 
 @log
-def depósito(valor, conta, /):
+def depósito(*, valor, conta):
     Depósito(valor).registrar(conta)
     print("Pressione uma tecla para retornar")
     msvcrt.getch()
-    return
+    return 0
 
 
 def extrato(conta, opt=None):
@@ -260,7 +271,7 @@ def main() -> None:
                     valor = input("Digite o valor desejado: ")                  
 
                 valor = float(valor)
-                depósito(valor, logged)
+                depósito(valor=valor, conta=logged)
                 continue
         
             case 'e':
